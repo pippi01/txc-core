@@ -1,0 +1,84 @@
+name: Build TXZ Core (Windows & macOS)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows Build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-miniupnpc
+            mingw-w64-x86_64-qt5
+            autoconf
+            automake
+            libtool
+            pkg-config
+            make
+
+      - name: Build TXZ Core (Windows, no wallet)
+        shell: msys2 {0}
+        run: |
+          ./autogen.sh
+          ./configure --disable-tests --disable-bench --disable-wallet
+          make -j2
+
+      - name: Package Windows binaries
+        shell: msys2 {0}
+        run: |
+          mkdir txz-core-win64
+          cp src/txzd.exe txz-core-win64/ || true
+          cp src/txz-cli.exe txz-core-win64/ || true
+          cp src/qt/txz-qt.exe txz-core-win64/ || true
+          tar -a -c -f txz-core-win64.zip txz-core-win64
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: txz-core-win64
+          path: txz-core-win64.zip
+
+  macos:
+    name: macOS Build
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (macOS)
+        run: |
+          brew update
+          brew install automake boost miniupnpc openssl qt@5
+
+      - name: Build TXZ Core (macOS, no wallet)
+        run: |
+          ./autogen.sh
+          ./configure --disable-tests --disable-bench --disable-wallet
+          make -j2
+
+      - name: Package macOS binaries
+        run: |
+          mkdir txz-core-macos
+          cp src/txzd src/txz-cli txz-core-macos/ || true
+          if [ -d src/qt/txz-qt.app ]; then cp -R src/qt/txz-qt.app txz-core-macos/; fi
+          zip -r txz-core-macos.zip txz-core-macos
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: txz-core-macos
+          path: txz-core-macos.zip
