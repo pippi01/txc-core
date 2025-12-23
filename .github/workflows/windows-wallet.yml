@@ -1,0 +1,89 @@
+name: TXZ Core Windows Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+
+    env:
+      VCPKG_ROOT: C:\vcpkg
+      VCPKG_DEFAULT_TRIPLET: x64-windows
+      QT_VERSION: 5.15.12
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies (Chocolatey)
+      shell: powershell
+      run: |
+        choco install -y git python strawberryperl cmake ninja
+
+    - name: Clone vcpkg
+      shell: powershell
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+        C:\vcpkg\bootstrap-vcpkg.bat
+
+    - name: Install vcpkg libraries
+      shell: powershell
+      run: |
+        C:\vcpkg\vcpkg.exe install ^
+          boost ^
+          libevent ^
+          openssl ^
+          zeromq ^
+          qrencode ^
+          miniupnpc ^
+          protobuf ^
+          sqlite3
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        arch: win64_msvc2019_64
+        cache: true
+
+    - name: Configure MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Configure build (CMake)
+      shell: powershell
+      run: |
+        mkdir build
+        cd build
+        cmake .. ^
+          -G Ninja ^
+          -DCMAKE_BUILD_TYPE=Release ^
+          -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake ^
+          -DBUILD_GUI=ON ^
+          -DBUILD_TESTS=OFF
+
+    - name: Build TXZ Core
+      shell: powershell
+      run: |
+        cd build
+        ninja
+
+    - name: Collect artifacts
+      shell: powershell
+      run: |
+        mkdir artifacts
+        copy build\src\txzd.exe artifacts\ || echo "txzd.exe not found"
+        copy build\src\txz-cli.exe artifacts\ || echo "txz-cli.exe not found"
+        copy build\src\qt\txz-qt.exe artifacts\ || echo "txz-qt.exe not found"
+
+    - name: Upload Windows wallet artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: txz-core-windows
+        path: artifacts
