@@ -1,0 +1,72 @@
+name: Windows Core Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+
+    strategy:
+      matrix:
+        platform: [x64]
+
+    env:
+      CONFIGURATION: Release
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >
+            base-devel
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-libevent
+            mingw-w64-x86_64-qt5
+            mingw-w64-x86_64-protobuf
+            mingw-w64-x86_64-zeromq
+            git
+            autoconf
+            automake
+            libtool
+            pkg-config
+
+      - name: Configure build (TXZ Core)
+        shell: msys2 {0}
+        run: |
+          export PATH=/mingw64/bin:$PATH
+          ./autogen.sh
+          ./configure \
+            --disable-tests \
+            --disable-bench \
+            --with-gui=qt5 \
+            --prefix=/mingw64
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          export PATH=/mingw64/bin:$PATH
+          make -j$(nproc)
+
+      - name: Package binaries
+        shell: msys2 {0}
+        run: |
+          mkdir -p dist
+          cp src/txzd.exe dist/ || true
+          cp src/txz-cli.exe dist/ || true
+          cp src/qt/txz-qt.exe dist/ || true
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: txz-windows-x64
+          path: dist/
