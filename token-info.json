@@ -1,0 +1,8 @@
+{
+  "name": "Wrapped TXZ",
+  "address": "0x8b1f49f9B570CDC4Ce46e2eCba3f72BA22d97cC7",
+  "symbol": "wTXZ",
+  "decimals": 8,
+  "chainId": 8453,
+  "logoURI": "https://raw.githubusercontent.com/pippi01/txz/main/logo.png"
+}
